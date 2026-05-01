@@ -74,7 +74,6 @@ tr:hover td { background: #faf9f5; }
     <div class="field" style="margin-bottom:12px">
       <span class="label">Apps Script URL</span>
       <input type="text" id="setup-url" placeholder="https://script.google.com/macros/s/.../exec" style="font-size:11px">
-    </div>der="https://script.google.com/macros/s/.../exec" style="font-size:11px">
     </div>
     <div class="field" style="margin-bottom:12px">
       <span class="label">Режим доступа</span>
@@ -115,7 +114,7 @@ tr:hover td { background: #faf9f5; }
     <div class="project-selector" id="ledger-filter"></div>
     <div class="card" style="padding:0;overflow:hidden;overflow-x:auto">
       <table>
-        <thead><tr><th>Дата</th><th>Проект</th><th>Брокер</th><th>USDT</th><th>Курс</th><th>ARS ожид.</th><th>ARS получ./прогресс</th><th>Кошелёк</th><th>Дедлайн</th><th>Статус</th><th>Счета ARS</th><th></th></tr></thead>
+        <thead><tr><th>Дата</th><th>Проект</th><th>Брокер</th><th>USDT</th><th>Курс</th><th>ARS ожид.</th>ч.</th><th>ARS получ./прогресс</th><th>Кошелёк</th><th>Дедлайн</th><th>Статус</th><th>Счета ARS</th><th></th></tr></thead>
         <tbody id="ledger-body"></tbody>
       </table>
     </div>
@@ -124,20 +123,20 @@ tr:hover td { background: #faf9f5; }
   <div class="view" id="view-new">
     <div class="card">
       <div class="section-title">Параметры обмена</div>
-      <div class="info-box">Крипто-кошелёк назначается автоматически — минимизация пересечений между проектами.</div>
+      <div class="info-box">Крипто-кошелёк назначается автоматически.</div>
       <div class="row">
         <div class="field"><span class="label">Проект</span><select id="n-project" onchange="onProjectChange()"><option value="">— выбрать —</option></select></div>
         <div class="field"><span class="label">Брокер</span><select id="n-broker"><option value="">— выбрать —</option></select></div>
-        <div class="field"><span class="label">Дата обмена</span><input type="date" id="n-date"></div>
+        <div class="field"><span class="label">Дата</span><input type="date" id="n-date"></div>
       </div>
       <div class="row">
-        <div class="field"><span class="label">Сумма USDT</span><input type="number" id="n-crypto" placeholder="0.00" oninput="calcPeso()"></div>
-        <div class="field"><span class="label">Курс (ARS/USDT)</span><input type="number" id="n-rate" placeholder="1250" oninput="calcPeso()"></div>
-        <div class="field"><span class="label">Ожидаемо ARS</span><input type="number" id="n-ars" readonly style="opacity:0.7"></div>
+        <div class="field"><span class="label">USDT</span><input type="number" id="n-crypto" placeholder="0.00" oninput="calcPeso()"></div>
+        <div class="field"><span class="label">Курс</span><input type="number" id="n-rate" placeholder="1250" oninput="calcPeso()"></div>
+        <div class="field"><span class="label">ARS</span><input type="number" id="n-ars" readonly style="opacity:0.7"></div>
       </div>
       <div class="row">
-        <div class="field" style="flex:2"><span class="label">Крипто-кошелёк (авто)</span><input type="text" id="n-wallet" readonly style="opacity:0.7;font-size:11px;font-family:monospace" placeholder="Выберите проект"></div>
-        <div class="field"><span class="label">Срок получения ARS</span><input type="date" id="n-deadline"></div>
+        <div class="field" style="flex:2"><span class="label">Кошелёк (авто)</span><input type="text" id="n-wallet" readonly style="opacity:0.7;font-size:11px;font-family:monospace" placeholder="Выберите проект"></div>
+        <div class="field"><span class="label">Дедлайн</span><input type="date" id="n-deadline"></div>
       </div>
       <div id="conflict-warn" class="warn-box"></div>
     </div>
@@ -281,4 +280,242 @@ async function loadLedger(){
   const exchanges=await api({action:'read',sheet:'exchanges',project:filterProj});
   cache.exchanges=Array.isArray(exchanges)?exchanges:[];
   renderLedger();
+}го USDT</div></div>
+    <div class="metric"><div class="val">${(totalARS/1000000).toFixed(1)}M</div><div class="lbl">Итого ARS</div></div>
+    <div class="metric"><div class="val">${pending}</div><div class="lbl">В ожидании</div></div>`;
+  if(MODE==='broker'){
+    document.getElementById('ledger-filter').innerHTML=
+      `<button class="proj-btn ${ledgerFilter==='all'?'active':''}" onclick="setLedgerFilter('all')">Все</button>`+
+      cache.projects.map(p=>`<button class="proj-btn ${ledgerFilter===p.id?'active':''}" onclick="setLedgerFilter('${p.id}')">${p.name}</button>`).join('');
+  }
+  const visible=ledgerFilter==='all'?exs:exs.filter(e=>e.project===ledgerFilter);
+  const body=document.getElementById('ledger-body');
+  if(!visible.length){body.innerHTML='<tr><td colspan="12" class="empty-state">Нет операций</td></tr>';return;}
+  const sM={pending:'badge-pending',partial:'badge-partial',done:'badge-done',cancelled:'badge-cancelled'};
+  const sL={pending:'Ожидание',partial:'Частично',done:'Выполнен',cancelled:'Отменён'};
+  body.innerHTML=visible.map(ex=>{
+    const proj=cache.projects.find(p=>p.id===ex.project);
+    const broker=cache.brokers.find(b=>b.id===ex.broker);
+    const wallet=cache.wallets.find(w=>w.id===ex.wallet);
+    const ars=parseFloat(ex.ars)||0,rec=parseFloat(ex.arsReceived)||0;
+    const pct=ars>0?Math.min(100,Math.round(rec/ars*100)):0;
+    let splits=[];try{splits=typeof ex.splits==='string'?JSON.parse(ex.splits):(ex.splits||[]);}catch(e){}
+    const splitsHtml=splits.map(s=>{const acc=cache.accounts.find(a=>a.id===s.account);return `<div style="font-size:11px;margin:2px 0">${acc?acc.owner:'?'}: <strong>${(parseFloat(s.amount)||0).toLocaleString()}</strong> ARS</div>`;}).join('');
+    const canEdit=MODE==='broker';
+    return `<tr>
+      <td>${ex.date||''}</td><td><span class="badge badge-project">${proj?.name||'?'}</span></td>
+      <td>${broker?.name||'?'}</td><td style="font-weight:500">${parseFloat(ex.crypto||0).toFixed(2)}</td>
+      <td>${parseFloat(ex.rate||0).toLocaleString()}</td><td>${parseFloat(ex.ars||0).toLocaleString()}</td>
+      <td><div>${rec.toLocaleString()}</div><div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div><div style="font-size:10px;color:#aaa">${pct}%</div></td>
+      <td class="mono">${wallet?wallet.label+'<br>'+wallet.addr.slice(0,10)+'...':'—'}</td>
+      <td>${ex.deadline||'—'}</td><td><span class="badge ${sM[ex.status]||'badge-pending'}">${sL[ex.status]||ex.status}</span></td>
+      <td>${splitsHtml||'—'}</td>
+      <td>${canEdit?`<select style="font-size:11px;padding:3px 6px;width:100px" onchange="updateStatus('${ex.id}',this.value)"><option value="pending" ${ex.status==='pending'?'selected':''}>Ожидание</option><option value="partial" ${ex.status==='partial'?'selected':''}>Частично</option><option value="done" ${ex.status==='done'?'selected':''}>Выполнен</option><option value="cancelled" ${ex.status==='cancelled'?'selected':''}>Отменён</option></select><br><input type="number" placeholder="ARS получ." style="margin-top:4px;font-size:11px;padding:3px 6px;width:100px" value="${ex.arsReceived||0}" onchange="updateReceived('${ex.id}',this.value)">`:''}</td>
+    </tr>`;
+  }).join('');
 }
+
+function setLedgerFilter(f){ledgerFilter=f;renderLedger();}
+
+async function updateStatus(id,status){
+  const ex=cache.exchanges.find(e=>String(e.id)===String(id));
+  if(!ex)return;ex.status=status;
+  await apiPost({action:'update',sheet:'exchanges',data:ex});toast('Статус обновлён');
+}
+
+async function updateReceived(id,val){
+  const ex=cache.exchanges.find(e=>String(e.id)===String(id));
+  if(!ex)return;
+  ex.arsReceived=parseFloat(val)||0;
+  if(ex.arsReceived>=(parseFloat(ex.ars)||0)&&ex.arsReceived>0)ex.status='done';
+  else if(ex.arsReceived>0)ex.status='partial';
+  await apiPost({action:'update',sheet:'exchanges',data:ex});
+  await loadLedger();toast('Обновлено');
+}
+
+function calcPeso(){
+  const c=parseFloat(document.getElementById('n-crypto').value)||0;
+  const r=parseFloat(document.getElementById('n-rate').value)||0;
+  document.getElementById('n-ars').value=c&&r?Math.round(c*r):'';
+  updateSplitRemain();
+}
+
+function onProjectChange(){
+  const pid=document.getElementById('n-project').value;
+  if(!pid){document.getElementById('n-wallet').value='';return;}
+  const wallet=assignWallet(pid);
+  document.getElementById('n-wallet').value=wallet?`${wallet.label} — ${wallet.addr}`:'Нет кошельков';
+  checkConflict(pid,wallet);
+}
+
+function assignWallet(pid){
+  if(!cache.wallets.length)return null;
+  const otherWallets=cache.exchanges.filter(e=>e.project!==pid).map(e=>e.wallet);
+  let best=null,bestScore=Infinity;
+  for(const w of cache.wallets){
+    const score=otherWallets.filter(x=>x===w.id).length*100+cache.exchanges.filter(e=>e.project===pid&&e.wallet===w.id).length;
+    if(score<bestScore){bestScore=score;best=w;}
+  }
+  return best;
+}
+
+function checkConflict(pid,wallet){
+  const warn=document.getElementById('conflict-warn');
+  if(!wallet){warn.style.display='none';return;}
+  const others=[...new Set(cache.exchanges.filter(e=>e.project!==pid&&e.wallet===wallet.id).map(e=>cache.projects.find(p=>p.id===e.project)?.name).filter(Boolean))];
+  if(others.length){warn.style.display='block';warn.textContent=`⚠ Кошелёк используется в: ${others.join(', ')}.`;}
+  else warn.style.display='none';
+}
+
+function addSplit(){splitRows.push({id:Date.now()});renderSplits();}
+function removeSplit(id){splitRows=splitRows.filter(r=>r.id!==id);renderSplits();}
+
+function renderSplits(){
+  const c=document.getElementById('splits-container');
+  if(!splitRows.length){c.innerHTML='<div style="font-size:12px;color:#aaa;padding:8px 0">Нажмите + Счёт чтобы добавить получателей</div>';updateSplitTotal();return;}
+  c.innerHTML=splitRows.map(r=>`<div class="split-row"><select style="flex:1.5" onchange="updateSplitTotal()" id="sr-acc-${r.id}"><option value="">— счёт —</option>${cache.accounts.map(a=>`<option value="${a.id}">${a.owner} — ${a.num.slice(-8)}</option>`).join('')}</select><input type="number" placeholder="ARS" style="flex:1" id="sr-amt-${r.id}" oninput="updateSplitTotal()"><input type="text" placeholder="Примечание" style="flex:1.5" id="sr-note-${r.id}"><button class="split-del" onclick="removeSplit(${r.id})">✕</button></div>`).join('');
+  updateSplitTotal();
+}
+
+function updateSplitTotal(){
+  const total=splitRows.reduce((s,r)=>s+(parseFloat(document.getElementById(`sr-amt-${r.id}`)?.value)||0),0);
+  const ars=parseFloat(document.getElementById('n-ars').value)||0;
+  document.getElementById('split-total').textContent=total.toLocaleString();
+  const rem=ars-total;
+  const el=document.getElementById('split-remain');
+  el.textContent=rem.toLocaleString();
+  el.style.color=rem<0?'#A32D2D':rem===0&&ars>0?'#3B6D11':'#1a1a18';
+}
+
+function updateSplitRemain(){updateSplitTotal();}
+
+function getSplitData(){
+  return splitRows.map(r=>({account:document.getElementById(`sr-acc-${r.id}`)?.value||'',amount:parseFloat(document.getElementById(`sr-amt-${r.id}`)?.value)||0,note:document.getElementById(`sr-note-${r.id}`)?.value||''})).filter(x=>x.account&&x.amount>0);
+}
+
+async function saveExchange(){
+  const proj=document.getElementById('n-project').value;
+  const broker=document.getElementById('n-broker').value;
+  const crypto=parseFloat(document.getElementById('n-crypto').value);
+  const rate=parseFloat(document.getElementById('n-rate').value);
+  const ars=parseFloat(document.getElementById('n-ars').value);
+  const date=document.getElementById('n-date').value;
+  const deadline=document.getElementById('n-deadline').value;
+  if(!proj||!broker||!crypto||!rate||!date){alert('Заполните все обязательные поля');return;}
+  const wallet=assignWallet(proj);
+  const btn=document.getElementById('btn-save');
+  btn.disabled=true;btn.textContent='Сохранение...';
+  const ex={id:'ex_'+Date.now(),date,project:proj,broker,crypto,rate,ars,arsReceived:0,wallet:wallet?wallet.id:'',deadline,splits:getSplitData(),status:'pending',createdAt:new Date().toISOString()};
+  await apiPost({action:'write',sheet:'exchanges',data:ex});
+  btn.disabled=false;btn.textContent='Сохранить обмен';
+  clearNewForm();toast('Обмен сохранён!');await loadLedger();
+}
+
+function clearNewForm(){
+  ['n-project','n-broker','n-crypto','n-rate','n-ars','n-wallet','n-date','n-deadline'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  splitRows=[];renderSplits();
+  document.getElementById('conflict-warn').style.display='none';
+}
+
+async function addProject(){
+  const name=document.getElementById('p-name').value.trim();
+  const cto=document.getElementById('p-cto').value.trim();
+  if(!name){alert('Введите название');return;}
+  const proj={id:'p_'+Date.now(),name,cto};
+  await apiPost({action:'write',sheet:'projects',data:proj});
+  cache.projects.push(proj);
+  document.getElementById('p-name').value='';document.getElementById('p-cto').value='';
+  renderProjectsList();populateSelects();
+  toast(`Проект "${name}" добавлен. ID: ${proj.id}`);
+}
+
+function renderProjectsList(){
+  const list=document.getElementById('projects-list');
+  if(!cache.projects.length){list.innerHTML='<div class="empty-state">Нет проектов</div>';return;}
+  list.innerHTML=cache.projects.map(p=>{
+    const exs=cache.exchanges.filter(e=>e.project===p.id);
+    return `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:13px;font-weight:500">${p.name}</div><div style="font-size:12px;color:#888;margin-top:2px">CTO: ${p.cto||'—'}</div><div class="mono" style="margin-top:4px">ID: ${p.id}</div></div><span class="badge badge-project">${exs.length} обменов</span></div></div>`;
+  }).join('');
+}
+
+async function addWallet(){
+  const addr=document.getElementById('w-addr').value.trim();
+  const type=document.getElementById('w-type').value;
+  const label=document.getElementById('w-label').value.trim();
+  if(!addr){alert('Введите адрес');return;}
+  const w={id:'w_'+Date.now(),addr,type,label:label||`Wallet #${cache.wallets.length+1}`};
+  await apiPost({action:'write',sheet:'wallets',data:w});
+  cache.wallets.push(w);
+  document.getElementById('w-addr').value='';document.getElementById('w-label').value='';
+  renderWalletsList();toast('Кошелёк добавлен');
+}
+
+function renderWalletsList(){
+  const list=document.getElementById('wallets-list');
+  if(!cache.wallets.length){list.innerHTML='<div class="empty-state">Нет кошельков</div>';return;}
+  list.innerHTML=`<div class="card" style="padding:0;overflow:hidden"><table><thead><tr><th>Метка</th><th>Тип</th><th>Адрес</th><th>Использований</th><th>Проекты</th></tr></thead><tbody>${cache.wallets.map(w=>{const used=cache.exchanges.filter(e=>e.wallet===w.id);const projs=[...new Set(used.map(e=>cache.projects.find(p=>p.id===e.project)?.name).filter(Boolean))];return `<tr><td style="font-weight:500">${w.label}</td><td>${w.type}</td><td class="mono">${w.addr.slice(0,16)}...${w.addr.slice(-6)}</td><td>${used.length}</td><td>${projs.join(', ')||'—'}</td></tr>`;}).join('')}</tbody></table></div>`;
+}
+
+async function addBroker(){
+  const name=document.getElementById('b-name').value.trim();
+  const contact=document.getElementById('b-contact').value.trim();
+  if(!name){alert('Введите имя');return;}
+  const b={id:'b_'+Date.now(),name,contact};
+  await apiPost({action:'write',sheet:'brokers',data:b});
+  cache.brokers.push(b);
+  document.getElementById('b-name').value='';document.getElementById('b-contact').value='';
+  renderBrokersList();populateSelects();toast('Брокер добавлен');
+}
+
+function renderBrokersList(){
+  const list=document.getElementById('brokers-list');
+  if(!cache.brokers.length){list.innerHTML='<div class="empty-state">Нет брокеров</div>';return;}
+  list.innerHTML=`<div class="card" style="padding:0;overflow:hidden"><table><thead><tr><th>Имя</th><th>Контакт</th><th>Обменов</th><th>Итого USDT</th></tr></thead><tbody>${cache.brokers.map(b=>{const exs=cache.exchanges.filter(e=>e.broker===b.id);return `<tr><td>${b.name}</td><td class="mono">${b.contact}</td><td>${exs.length}</td><td>${exs.reduce((s,e)=>s+(parseFloat(e.crypto)||0),0).toFixed(2)}</td></tr>`;}).join('')}</tbody></table></div>`;
+}
+
+async function addAccount(){
+  const num=document.getElementById('acc-num').value.trim();
+  const owner=document.getElementById('acc-owner').value.trim();
+  const bank=document.getElementById('acc-bank').value.trim();
+  if(!num||!owner){alert('Введите номер и владельца');return;}
+  const a={id:'a_'+Date.now(),num,owner,bank};
+  await apiPost({action:'write',sheet:'accounts',data:a});
+  cache.accounts.push(a);
+  document.getElementById('acc-num').value='';document.getElementById('acc-owner').value='';document.getElementById('acc-bank').value='';
+  renderAccountsList();toast('Счёт добавлен');
+}
+
+function renderAccountsList(){
+  const list=document.getElementById('accounts-list');
+  if(!cache.accounts.length){list.innerHTML='<div style="font-size:12px;color:#aaa">Нет счетов</div>';return;}
+  list.innerHTML=cache.accounts.map(a=>`<div class="wallet-row"><div><div style="font-size:13px;font-weight:500">${a.owner}</div><div class="mono">${a.num}</div></div><div style="font-size:12px;color:#888">${a.bank}</div></div>`).join('');
+}
+
+function populateSelects(){
+  const ps=document.getElementById('n-project');
+  const pb=document.getElementById('n-broker');
+  if(ps)ps.innerHTML='<option value="">— выбрать —</option>'+cache.projects.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  if(pb)pb.innerHTML='<option value="">— выбрать —</option>'+cache.brokers.map(b=>`<option value="${b.id}">${b.name}</option>`).join('');
+}
+
+function showTab(t){
+  document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('active',['ledger','new','projects','wallets','brokers'][i]===t));
+  document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
+  document.getElementById('view-'+t).classList.add('active');
+  if(t==='ledger')loadLedger();
+  if(t==='projects')renderProjectsList();
+  if(t==='wallets')renderWalletsList();
+  if(t==='brokers'){renderBrokersList();renderAccountsList();}
+  if(t==='new'){populateSelects();document.getElementById('n-date').value=new Date().toISOString().slice(0,10);renderSplits();}
+}
+
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.style.display='block';
+  setTimeout(()=>el.style.display='none',3000);
+}
+
+if(API_URL&&MODE)initApp();
+</script>
+</body>
+</html>
